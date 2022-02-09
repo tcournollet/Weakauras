@@ -244,9 +244,9 @@ aura_env.auraAppliedSubEvents = {
     ["SPELL_AURA_APPLIED_DOSE"] = true,
 };
 
-aura_env.addUnit = function(unit)
+aura_env.addUnit = function(unit, table)
     if UnitExists(unit)then
-        aura_env.partyUnits[UnitGUID(unit)] = unit;
+        table[UnitGUID(unit)] = unit;
     end
 end
 
@@ -272,17 +272,17 @@ function(allstates, event, ...)
     local destGuid = select(8, ...);
     local spellId = select(12, ...);
     
-    -- party units changed
+    -- group units
     if (event == "GROUP_ROSTER_UPDATE") then
-        aura_env.partyUnits = {};
-        aura_env.addUnit("player");
+        aura_env.groupUnits = {};
+        aura_env.addUnit("player", aura_env.groupUnits);
         if (IsInRaid()) then
             for i = 1, MAX_RAID_MEMBERS do
-                aura_env.addUnit("raid"..i);
+                aura_env.addUnit("raid"..i, aura_env.groupUnits);
             end
         elseif (IsInGroup()) then
             for i = 1, MAX_PARTY_MEMBERS do
-                aura_env.addUnit("party"..i);
+                aura_env.addUnit("party"..i, aura_env.groupUnits);
             end
         end
     end
@@ -300,7 +300,7 @@ function(allstates, event, ...)
     -- aura applied
     if (aura_env.auraAppliedSubEvents[subEvent]) then
         local index = aura_env.spells[spellId];
-        local destUnit = (aura_env.partyUnits and aura_env.partyUnits[destGuid]);
+        local destUnit = (aura_env.groupUnits and aura_env.groupUnits[destGuid]);
 
         if (index and destUnit) then
             local name = select(13, ...);
@@ -332,7 +332,7 @@ function(allstates, event, ...)
     -- interrupt applied
     if (subEvent == "SPELL_INTERRUPT") then
         local index = aura_env.spells[spellId];
-        local destUnit = (aura_env.partyUnits and aura_env.partyUnits[destGuid]);
+        local destUnit = (aura_env.groupUnits and aura_env.groupUnits[destGuid]);
 
         if (index and destUnit) then
             local duration = aura_env.interrupts[spellId];

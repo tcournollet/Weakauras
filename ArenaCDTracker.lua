@@ -1,5 +1,6 @@
 -- INIT
 aura_env.spells = tInvert({
+    -- Immunities
     642,    -- Divine Shield
     186265, -- Aspect of the Turtle
     45438,  -- Ice Block
@@ -15,6 +16,60 @@ aura_env.spells = tInvert({
     8178,   -- Grounding Totem Effect
     199448, -- Blessing of Sacrifice
     236321, -- War Banner
+
+    -- Anti CCs
+    23920,  -- Spell Reflection
+    330279, -- Overwatch
+    213610, -- Priest: Holy Ward
+    213602, -- Priest: Greater Fade
+    212295, -- Warlock: Nether Ward
+    48707,  -- Death Knight: Anti-Magic Shell
+    5384,   -- Hunter: Feign Death
+
+    -- Offensive Buffs
+    51271,  -- Death Knight: Pillar of Frost
+    47568,  -- Death Knight: Empower Rune Weapon
+    207289, -- Death Knight: Unholy Assault
+    162264, -- Demon Hunter: Metamorphosis
+    194223, -- Druid: Celestial Alignment
+    102560, -- Druid: Incarnation: Chosen of Elune
+    102543, -- Druid: Incarnation: King of the Jungle
+    19574,  -- Hunter: Bestial Wrath
+    266779, -- Hunter: Coordinated Assault
+    288613, -- Hunter: Trueshot
+    260402, -- Hunter: Double Tap
+    12042,  -- Mage: Arcane Power
+    190319, -- Mage: Combustion
+    198144, -- Mage: Ice Form
+    12472,  -- Mage: Icy Veins
+    80353,  -- Mage: Time Warp
+    152173, -- Monk: Serenity
+    137639, -- Monk: Storm, Earth, and Fire
+    31884,  -- Paladin: Avenging Wrath (Retribution)
+    152262, -- Paladin: Seraphim
+    231895, -- Paladin: Crusade
+    197871, -- Priest: Dark Archangel
+    10060,  -- Priest: Power Infusion
+    194249, -- Priest: Voidform
+    13750,  -- Rogue: Adrenaline Rush
+    121471, -- Rogue: Shadow Blades
+    114050, -- Shaman: Ascendance (Elemental)
+    114051, -- Shaman: Ascendance (Enhancement)
+    2825,   -- Shaman: Bloodlust
+    204361, -- Shaman: Bloodlust (Honor Talent)
+    32182,  -- Shaman: Heroism
+    204362, -- Shaman: Heroism (Honor Talent)
+    191634, -- Shaman: Stormkeeper
+    204366, -- Shaman: Thundercharge
+    113858, -- Warlock: Dark Soul: Instability
+    113860, -- Warlock: Dark Soul: Misery
+    107574, -- Warrior: Avatar
+    227847, -- Warrior: Bladestorm (Arms)
+    260708, -- Warrior: Sweeping Strikes
+    262228, -- Warrior: Deadly Calm
+    1719,   -- Warrior: Recklessness
+
+    -- Defensive Buffs
     48792,  -- Death Knight: Icebound Fortitude
     49039,  -- Death Knight: Lichborne
     145629, -- Death Knight: Anti-Magic Zone
@@ -70,51 +125,14 @@ aura_env.spells = tInvert({
     213871, -- Warrior: Bodyguard
     345231, -- Trinket: Gladiator's Emblem
     197690, -- Warrior: Defensive Stance
-    51271,  -- Death Knight: Pillar of Frost
-    47568,  -- Death Knight: Empower Rune Weapon
-    207289, -- Death Knight: Unholy Assault
-    162264, -- Demon Hunter: Metamorphosis
-    194223, -- Druid: Celestial Alignment
-    102560, -- Druid: Incarnation: Chosen of Elune
-    102543, -- Druid: Incarnation: King of the Jungle
-    19574,  -- Hunter: Bestial Wrath
-    266779, -- Hunter: Coordinated Assault
-    288613, -- Hunter: Trueshot
-    260402, -- Hunter: Double Tap
-    12042,  -- Mage: Arcane Power
-    190319, -- Mage: Combustion
-    198144, -- Mage: Ice Form
-    12472,  -- Mage: Icy Veins
-    80353,  -- Mage: Time Warp
-    152173, -- Monk: Serenity
-    137639, -- Monk: Storm, Earth, and Fire
-    31884,  -- Paladin: Avenging Wrath (Retribution)
-    152262, -- Paladin: Seraphim
-    231895, -- Paladin: Crusade
-    197871, -- Priest: Dark Archangel
-    10060,  -- Priest: Power Infusion
-    194249, -- Priest: Voidform
-    13750,  -- Rogue: Adrenaline Rush
-    121471, -- Rogue: Shadow Blades
-    114050, -- Shaman: Ascendance (Elemental)
-    114051, -- Shaman: Ascendance (Enhancement)
-    2825,   -- Shaman: Bloodlust
-    204361, -- Shaman: Bloodlust (Honor Talent)
-    32182,  -- Shaman: Heroism
-    204362, -- Shaman: Heroism (Honor Talent)
-    191634, -- Shaman: Stormkeeper
-    204366, -- Shaman: Thundercharge
-    113858, -- Warlock: Dark Soul: Instability
-    113860, -- Warlock: Dark Soul: Misery
-    107574, -- Warrior: Avatar
-    227847, -- Warrior: Bladestorm (Arms)
-    260708, -- Warrior: Sweeping Strikes
-    262228, -- Warrior: Deadly Calm
-    1719,   -- Warrior: Recklessness
 });
 
 -- TRIGGER 1 events: PLAYER_REGEN_DISABLED COMBAT_LOG_EVENT_UNFILTERED:SPELL_CAST_SUCCESS
 function(allstates, event, ...)
+    local subEvent = select(2, ...);
+    local sourceGuid = select(4, ...);
+    local spellId = select(12, ...);
+
     if (event == "PLAYER_REGEN_DISABLED") then
         aura_env.arenaUnits = {};
         for i = 1, 3 do
@@ -124,27 +142,31 @@ function(allstates, event, ...)
             end
         end
     end
-    
-    local subEvent = select(2, ...);
-    local sourceGuid = select(4, ...);
-    local spellId = select(12, ...);
-    local sourceUnit = (aura_env.arenaUnits and aura_env.arenaUnits[sourceGuid]);
-    local spellIndex = aura_env.spells[spellId];
-    if (subEvent == "SPELL_CAST_SUCCESS" and spellIndex and sourceUnit) then
-        local duration = GetSpellBaseCooldown(spellId)/1000;
-        local name, _, icon = GetSpellInfo(spellId);
-        allstates["ArenaCdTracker"..sourceGuid..spellId] = {
-            show = true,
-            changed = true,
-            progressType = "timed",
-            autoHide = true,
-            duration = duration,
-            expirationTime = GetTime() + duration,
-            icon = icon,
-            name = name,
-            unit = sourceUnit,
-            index = spellIndex,
-        }
+
+    if (subEvent == "SPELL_CAST_SUCCESS") then
+        local index = aura_env.spells[spellId];
+        local sourceUnit = (aura_env.arenaUnits and aura_env.arenaUnits[sourceGuid]);
+        if (index and sourceUnit) then
+            local duration = GetSpellBaseCooldown(spellId)/1000;
+            local name, _, icon = GetSpellInfo(spellId);
+
+            if (not icon) then
+                print("|cff9F6000Warning: Icon not found in WeakAuras aura ", aura_env.id, ". name: ", name, ", id: ", spellId, "|r"); 
+            end
+
+            allstates["ArenaCdTracker"..sourceGuid..spellId] = {
+                show = true,
+                changed = true,
+                progressType = "timed",
+                autoHide = true,
+                duration = duration,
+                expirationTime = GetTime() + duration,
+                icon = icon,
+                name = name,
+                unit = sourceUnit,
+                index = spellIndex,
+            }
+        end
     end
     
     return true;

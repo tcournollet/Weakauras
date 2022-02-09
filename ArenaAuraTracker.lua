@@ -210,7 +210,7 @@ aura_env.spells = tInvert({
     
     -- Offensive Buffs
     51271,  -- Death Knight: Pillar of Frost
-    -- 47568,  -- Death Knight: Empower Rune Weapon
+    47568,  -- Death Knight: Empower Rune Weapon
     207289, -- Death Knight: Unholy Assault
     162264, -- Demon Hunter: Metamorphosis
     194223, -- Druid: Celestial Alignment
@@ -219,11 +219,11 @@ aura_env.spells = tInvert({
     19574,  -- Hunter: Bestial Wrath
     266779, -- Hunter: Coordinated Assault
     288613, -- Hunter: Trueshot
-    -- 260402, -- Hunter: Double Tap
+    260402, -- Hunter: Double Tap
     12042,  -- Mage: Arcane Power
     190319, -- Mage: Combustion
     198144, -- Mage: Ice Form
-    -- 12472,  -- Mage: Icy Veins
+    12472,  -- Mage: Icy Veins
     80353,  -- Mage: Time Warp
     152173, -- Monk: Serenity
     137639, -- Monk: Storm, Earth, and Fire
@@ -231,7 +231,7 @@ aura_env.spells = tInvert({
     152262, -- Paladin: Seraphim
     231895, -- Paladin: Crusade
     197871, -- Priest: Dark Archangel
-    -- 10060,  -- Priest: Power Infusion
+    10060,  -- Priest: Power Infusion
     194249, -- Priest: Voidform
     13750,  -- Rogue: Adrenaline Rush
     121471, -- Rogue: Shadow Blades
@@ -247,7 +247,7 @@ aura_env.spells = tInvert({
     113860, -- Warlock: Dark Soul: Misery
     107574, -- Warrior: Avatar
     227847, -- Warrior: Bladestorm (Arms)
-    -- 260708, -- Warrior: Sweeping Strikes
+    260708, -- Warrior: Sweeping Strikes
     262228, -- Warrior: Deadly Calm
     1719,   -- Warrior: Recklessness
     
@@ -336,8 +336,40 @@ aura_env.spells = tInvert({
     322460, -- Thoughtstolen (Priest - Shadow)
 });
 
+aura_env.auraRemovedSubEvents = {
+    ["SPELL_AURA_REMOVED"] = true,
+    ["SPELL_AURA_REMOVED_DOSE"] = true,
+};
+
+aura_env.auraAppliedSubEvents = {
+    ["SPELL_AURA_APPLIED"] = true,
+    ["SPELL_AURA_REFRESH"] = true,
+    ["SPELL_AURA_APPLIED_DOSE"] = true,
+};
+
+aura_env.getAura = function(destUnit, spellId, type)
+    if (destUnit and spellId and type) then
+        local filter = (type == "BUFF" and "HELPFUL" or "HARMFUL");
+
+        for i = 1, 30 do
+            local _, icon, count, dispelType, duration, expirationTime, _, _, _, id = UnitAura(destUnit, i, filter);
+            if (id == spellId) then 
+                return icon, count, dispelType, duration, expirationTime;
+            end
+            if (not id) then
+                break;
+            end
+        end
+    end
+end
+
 -- TRIGGER 1 events: PLAYER_REGEN_DISABLED COMBAT_LOG_EVENT_UNFILTERED
 function(allstates, event, ...)
+    local subEvent = select(2, ...);
+    local destGuid = select(8, ...);
+    local spellId = select(12, ...);
+
+    -- arena units
     if (event == "PLAYER_REGEN_DISABLED") then
         aura_env.arenaUnits = {};
         for i = 1, 3 do
@@ -348,84 +380,47 @@ function(allstates, event, ...)
         end
     end
     
-    local subEvent = select(2, ...);
-    local destGuid = select(8, ...);
-    local auraSpellId = select(12, ...);
-    local auraName = select(13, ...);
-    local auraType = select(15, ...);
-    local destUnit = (aura_env.arenaUnits and aura_env.arenaUnits[destGuid]);
-    local auraIndex = aura_env.spells[auraSpellId];
-    
-    local subEvents = {
-        ["SPELL_AURA_REMOVED"] = true,
-        ["SPELL_AURA_REMOVED_DOSE"] = true,
-    };
-    if (subEvents[subEvent] and allstates[destGuid..auraSpellId] and allstates[destGuid..auraSpellId].show) then
-        allstates[destGuid..auraSpellId] = {
-            show = false,
-            changed = true,
-        };
+    -- aura removed
+    if (aura_env.auraRemovedSubEvents[subEvent]) then
+        if (allstates[destGuid..spellId] and allstates[destGuid..spellId].show) then
+            allstates[destGuid..spellId] = {
+                show = false,
+                changed = true,
+            };
+        end
     end
     
-    subEvents = {
-        ["SPELL_AURA_APPLIED"] = true,
-        ["SPELL_AURA_REFRESH"] = true,
-        ["SPELL_AURA_APPLIED_DOSE"] = true,
-    };
-    if (subEvents[subEvent] and auraIndex and destUnit) then
-        local auraIcon, auraStacks, auraDuration, auraExpirationTime, auraDispelType;
-        local filter = (auraType == "BUFF" and "HELPFUL" or "HARMFUL");
-        
-        for i = 1, 30 do
-            local _, icon, count, dispelType, duration, expirationTime, _, _, _, spellId = UnitAura(destUnit, i, filter);
-            if (spellId == auraSpellId) then 
-                auraIcon = icon;
-                auraStacks = count;
-                auraDuration = duration;
-                auraExpirationTime = expirationTime;
-                auraDispelType = dispelType;
-                break;
+    -- aura applied
+    if (aura_env.auraAppliedSubEvents[subEvent]) then
+        local index = aura_env.spells[spellId];
+        local destUnit = (aura_env.partyUnits and aura_env.partyUnits[destGuid]);
+
+        if (index and destUnit) then
+            local name = select(13, ...);
+            local type = select(15, ...);
+            local isRoot = aura_env.roots[spellId] or false;
+            local icon, count, dispelType, duration, expirationTime = aura_env.getAura(destUnit, spellId, type);
+
+            if (not icon) then
+                print("|cff9F6000Warning: Icon not found in WeakAuras aura ", aura_env.id, ". name: ", name, ", id: ", spellId, "|r"); 
             end
-            if (not spellId) then
-                break;
-            end
+
+            allstates[destGuid..spellId] = {
+                show = true,
+                changed = true,
+                name = name,
+                icon = icon,
+                stacks = count,
+                progressType = "timed",
+                duration = duration,
+                expirationTime = expirationTime,
+                index = index,
+                unit = destUnit,
+                dispelType = dispelType,
+                isRoot = isRoot,
+            };
         end
-        
-        allstates[destGuid..auraSpellId] = {
-            show = true,
-            changed = true,
-            name = auraName,
-            icon = auraIcon,
-            stacks = auraStacks,
-            progressType = "timed",
-            duration = auraDuration,
-            expirationTime = auraExpirationTime,
-            index = auraIndex,
-            unit = destUnit,
-            dispelType = auraDispelType,
-        };
     end
     
     return true;
-end
-
--- GROUP BY FRAME ANCHOR
-function(frames, activeRegions)
-    for _, regionData in ipairs(activeRegions) do
-        local unit = regionData.region.state and regionData.region.state.unit;
-        if (unit) then
-            local frame = WeakAuras.GetUnitFrame(unit);
-            if (frame) then
-                local portrait = _G[frame:GetName().."ClassPortrait"];
-                if (portrait) then
-                    regionData.region:SetRegionHeight(portrait:GetHeight() + 10);
-                    regionData.region:SetRegionWidth(portrait:GetWidth() + 10);
-                    regionData.region:SetAnchor("CENTER", portrait, "CENTER");
-                    
-                    frames[portrait] = frames[portrait] or {};
-                    tinsert(frames[portrait], regionData);
-                end
-            end
-        end
-    end
 end
