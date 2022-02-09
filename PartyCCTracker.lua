@@ -1,5 +1,8 @@
 -- INIT
 aura_env.spells = tInvert({
+    -- Higher up = higher priority
+
+    -- CCs
     5211,   -- Mighty Bash (Stun)
     108194, -- Asphyxiate (Unholy) (Stun)
     221562, -- Asphyxiate (Blood) (Stun)
@@ -42,7 +45,7 @@ aura_env.spells = tInvert({
     46968,  -- Shockwave
     132168, -- Shockwave (Protection)
     287712, -- Haymaker (Stun)
-    
+
     33786,  -- Cyclone (Disorient)
     5246,   -- Intimidating Shout (Disorient)
     8122,   -- Psychic Scream (Disorient)
@@ -66,7 +69,7 @@ aura_env.spells = tInvert({
     236748, -- Intimidating Roar (Disorient)
     331866, -- Agent of Chaos (Disorient)
     324263, -- Sulfuric Emission (Disorient)
-    
+
     51514,  -- Hex (Incapacitate)
     211004, -- Hex: Spider (Incapacitate)
     210873, -- Hex: Raptor (Incapacitate)
@@ -107,7 +110,29 @@ aura_env.spells = tInvert({
     9484,   -- Shackle Undead (Incapacitate)
     710,    -- Banish (Incapacitate)
     6789,   -- Mortal Coil (Incapacitate)
-    
+
+    -- Interrupts
+    1766,   -- Kick (Rogue)
+    2139,   -- Counterspell (Mage)
+    6552,   -- Pummel (Warrior)
+    19647,  -- Spell Lock (Warlock)
+    47528,  -- Mind Freeze (Death Knight)
+    57994,  -- Wind Shear (Shaman)
+    91802,  -- Shambling Rush (Death Knight)
+    96231,  -- Rebuke (Paladin)
+    106839, -- Skull Bash (Feral)
+    97547,  -- Solar Beam (Balance)
+    115781, -- Optical Blast (Warlock)
+    116705, -- Spear Hand Strike (Monk)
+    132409, -- Spell Lock (Warlock)
+    147362, -- Countershot (Hunter)
+    171138, -- Shadow Lock (Warlock)
+    183752, -- Consume Magic (Demon Hunter)
+    187707, -- Muzzle (Hunter)
+    212619, -- Call Felhunter (Warlock)
+    231665, -- Avengers Shield (Paladin)
+
+    -- Silences
     81261,  -- Solar Beam
     202933, -- Spider Sting
     233022, -- Spider Sting 2
@@ -121,16 +146,18 @@ aura_env.spells = tInvert({
     43523,  -- Unstable Affliction Silence 1
     196364, -- Unstable Affliction Silence 2
     317589, -- Tormenting Backlash
-    
+
+    323673, -- Mindgames
+    356567, -- Shackles of Malediction
+
+    -- Disarms
     236077, -- Disarm
     236236, -- Disarm (Protection)
     209749, -- Faerie Swarm (Disarm)
     233759, -- Grapple Weapon
     207777, -- Dismantle
-    
-    323673, -- Mindgames
-    356567, -- Shackles of Malediction
-    
+
+    -- Roots
     339,    -- Entangling Roots
     170855, -- Entangling Roots (Nature's Grasp)
     201589, -- Entangling Roots (Tree of Life)
@@ -156,6 +183,28 @@ aura_env.spells = tInvert({
     117526, -- Binding Shot
     207171, -- Winter is Coming
 });
+
+aura_env.interrupts = {
+    [1766] = 5,     -- Kick (Rogue)
+    [2139] = 6,     -- Counterspell (Mage)
+    [6552] = 4,     -- Pummel (Warrior)
+    [19647] = 6,    -- Spell Lock (Warlock)
+    [47528] = 3,    -- Mind Freeze (Death Knight)
+    [57994] = 3,    -- Wind Shear (Shaman)
+    [91802] = 2,    -- Shambling Rush (Death Knight)
+    [96231] = 4,    -- Rebuke (Paladin)
+    [106839] = 4,   -- Skull Bash (Feral)
+    [97547] = 5,    -- Solar Beam (Balance)
+    [115781] = 6,   -- Optical Blast (Warlock)
+    [116705] = 4,   -- Spear Hand Strike (Monk)
+    [132409] = 6,   -- Spell Lock (Warlock)
+    [147362] = 3,   -- Countershot (Hunter)
+    [171138] = 6,   -- Shadow Lock (Warlock)
+    [183752] = 3,   -- Consume Magic (Demon Hunter)
+    [187707] = 3,   -- Muzzle (Hunter)
+    [212619] = 6,   -- Call Felhunter (Warlock)
+    [231665] = 3,   -- Avengers Shield (Paladin)    
+};
 
 aura_env.roots = {
     [339] = true,    -- Entangling Roots
@@ -184,86 +233,120 @@ aura_env.roots = {
     [207171] = true, -- Winter is Coming
 };
 
--- TRIGGER 1 events: PLAYER_REGEN_DISABLED COMBAT_LOG_EVENT_UNFILTERED
-function(allstates, event, ...)
-    local function addUnit(unit)
-        if UnitExists(unit)then
-            aura_env.partyUnits[UnitGUID(unit)] = unit;
+aura_env.auraRemovedSubEvents = {
+    ["SPELL_AURA_REMOVED"] = true,
+    ["SPELL_AURA_REMOVED_DOSE"] = true,
+};
+
+aura_env.auraAppliedSubEvents = {
+    ["SPELL_AURA_APPLIED"] = true,
+    ["SPELL_AURA_REFRESH"] = true,
+    ["SPELL_AURA_APPLIED_DOSE"] = true,
+};
+
+aura_env.addUnit = function(unit)
+    if UnitExists(unit)then
+        aura_env.partyUnits[UnitGUID(unit)] = unit;
+    end
+end
+
+aura_env.getAura = function(destUnit, spellId, type)
+    if (destUnit and spellId and type) then
+        local filter = (type == "BUFF" and "HELPFUL" or "HARMFUL");
+
+        for i = 1, 30 do
+            local _, icon, count, dispelType, duration, expirationTime, _, _, _, id = UnitAura(destUnit, i, filter);
+            if (id == spellId) then 
+                return icon, count, dispelType, duration, expirationTime;
+            end
+            if (not id) then
+                break;
+            end
         end
     end
+end
+
+-- TRIGGER 1 events: GROUP_ROSTER_UPDATE,COMBAT_LOG_EVENT_UNFILTERED:SPELL_AURA_REMOVED,COMBAT_LOG_EVENT_UNFILTERED:SPELL_AURA_REMOVED_DOSE,COMBAT_LOG_EVENT_UNFILTERED:SPELL_AURA_APPLIED,COMBAT_LOG_EVENT_UNFILTERED:SPELL_AURA_REFRESH,COMBAT_LOG_EVENT_UNFILTERED:SPELL_AURA_APPLIED_DOSE,COMBAT_LOG_EVENT_UNFILTERED:SPELL_INTERRUPT
+function(allstates, event, ...)
+    local subEvent = select(2, ...);
+    local destGuid = select(8, ...);
+    local spellId = select(12, ...);
     
-    if (event == "PLAYER_REGEN_DISABLED") then
+    -- party units changed
+    if (event == "GROUP_ROSTER_UPDATE") then
         aura_env.partyUnits = {};
-        addUnit("player");
+        aura_env.addUnit("player");
         if (IsInRaid()) then
             for i = 1, MAX_RAID_MEMBERS do
-                addUnit("raid"..i);
+                aura_env.addUnit("raid"..i);
             end
         elseif (IsInGroup()) then
             for i = 1, MAX_PARTY_MEMBERS do
-                addUnit("party"..i);
+                aura_env.addUnit("party"..i);
             end
         end
     end
-    
-    local subEvent = select(2, ...);
-    local destGuid = select(8, ...);
-    local auraSpellId = select(12, ...);
-    local auraName = select(13, ...);
-    local auraType = select(15, ...);
-    local destUnit = (aura_env.partyUnits and aura_env.partyUnits[destGuid]);
-    local auraIndex = aura_env.spells[auraSpellId];
-    local rootAura = aura_env.roots[auraSpellId] or false;
-    
-    local subEvents = {
-        ["SPELL_AURA_REMOVED"] = true,
-        ["SPELL_AURA_REMOVED_DOSE"] = true,
-    };
-    if (subEvents[subEvent] and allstates[destGuid..auraSpellId] and allstates[destGuid..auraSpellId].show) then
-        allstates[destGuid..auraSpellId] = {
-            show = false,
-            changed = true,
-        };
-    end
-    
-    subEvents = {
-        ["SPELL_AURA_APPLIED"] = true,
-        ["SPELL_AURA_REFRESH"] = true,
-        ["SPELL_AURA_APPLIED_DOSE"] = true,
-    };
-    if (subEvents[subEvent] and auraIndex and destUnit) then
-        local auraIcon, auraStacks, auraDuration, auraExpirationTime, auraDispelType;
-        local filter = (auraType == "BUFF" and "HELPFUL" or "HARMFUL");
-        
-        for i = 1, 30 do
-            local _, icon, count, dispelType, duration, expirationTime, _, _, _, spellId = UnitAura(destUnit, i, filter);
-            if (spellId == auraSpellId) then 
-                auraIcon = icon;
-                auraStacks = count;
-                auraDuration = duration;
-                auraExpirationTime = expirationTime;
-                auraDispelType = dispelType;
-                break;
-            end
-            if (not spellId) then
-                break;
-            end
+
+    -- aura removed
+    if (aura_env.auraRemovedSubEvents[subEvent]) then
+        if (allstates[destGuid..spellId] and allstates[destGuid..spellId].show) then
+            allstates[destGuid..spellId] = {
+                show = false,
+                changed = true,
+            };
         end
-        
-        allstates[destGuid..auraSpellId] = {
-            show = true,
-            changed = true,
-            name = auraName,
-            icon = auraIcon,
-            stacks = auraStacks,
-            progressType = "timed",
-            duration = auraDuration,
-            expirationTime = auraExpirationTime,
-            index = auraIndex,
-            unit = destUnit,
-            dispelType = auraDispelType,
-            isRoot = rootAura,
-        };
+    end
+
+    -- aura applied
+    if (aura_env.auraAppliedSubEvents[subEvent]) then
+        local index = aura_env.spells[spellId];
+        local destUnit = (aura_env.partyUnits and aura_env.partyUnits[destGuid]);
+
+        if (index and destUnit) then
+            local name = select(13, ...);
+            local type = select(15, ...);
+            local isRoot = aura_env.roots[spellId] or false;
+            local icon, count, dispelType, duration, expirationTime = aura_env.getAura(destUnit, spellId, type);
+
+            allstates[destGuid..spellId] = {
+                show = true,
+                changed = true,
+                name = name,
+                icon = icon,
+                stacks = count,
+                progressType = "timed",
+                duration = duration,
+                expirationTime = expirationTime,
+                index = index,
+                unit = destUnit,
+                dispelType = dispelType,
+                isRoot = isRoot,
+            };
+        end
+    end
+
+    -- interrupt applied
+    if (subEvent == "SPELL_INTERRUPT") then
+        local index = aura_env.spells[spellId];
+        local destUnit = (aura_env.partyUnits and aura_env.partyUnits[destGuid]);
+
+        if (index and destUnit) then
+            local duration = aura_env.interrupts[spellId];
+            local name, _, icon = GetSpellInfo(spellId);
+            
+            allstates[destGuid..spellId] = {
+                show = true,
+                changed = true,
+                name = name,
+                icon = icon,
+                autoHide = true,
+                progressType = "timed",
+                duration = duration,
+                expirationTime = GetTime() + duration,
+                index = index,
+                unit = destUnit,
+            };
+        end
     end
     
     return true;
