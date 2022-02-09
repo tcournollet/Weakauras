@@ -393,12 +393,11 @@ function(allstates, event, ...)
     -- aura applied
     if (aura_env.auraAppliedSubEvents[subEvent]) then
         local index = aura_env.spells[spellId];
-        local destUnit = (aura_env.partyUnits and aura_env.partyUnits[destGuid]);
+        local destUnit = (aura_env.arenaUnits and aura_env.arenaUnits[destGuid]);
 
         if (index and destUnit) then
             local name = select(13, ...);
             local type = select(15, ...);
-            local isRoot = aura_env.roots[spellId] or false;
             local icon, count, dispelType, duration, expirationTime = aura_env.getAura(destUnit, spellId, type);
 
             if (not icon) then
@@ -417,7 +416,6 @@ function(allstates, event, ...)
                 index = index,
                 unit = destUnit,
                 dispelType = dispelType,
-                isRoot = isRoot,
             };
         end
     end
