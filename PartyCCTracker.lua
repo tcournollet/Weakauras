@@ -308,6 +308,10 @@ function(allstates, event, ...)
             local isRoot = aura_env.roots[spellId] or false;
             local icon, count, dispelType, duration, expirationTime = aura_env.getAura(destUnit, spellId, type);
 
+            if (not icon) then
+                print("|cff9F6000Warning: Icon not found in WeakAuras aura ", aura_env.id, ". name: ", name, ", id: ", spellId, "|r"); 
+            end
+
             allstates[destGuid..spellId] = {
                 show = true,
                 changed = true,
@@ -333,6 +337,10 @@ function(allstates, event, ...)
         if (index and destUnit) then
             local duration = aura_env.interrupts[spellId];
             local name, _, icon = GetSpellInfo(spellId);
+
+            if (not icon) then
+                print("|cff9F6000Warning: Icon not found in WeakAuras aura ", aura_env.id, ". name: ", name, ", id: ", spellId, "|r"); 
+            end
             
             allstates[destGuid..spellId] = {
                 show = true,
