@@ -336,6 +336,28 @@ aura_env.spells = tInvert({
     322460, -- Thoughtstolen (Priest - Shadow)
 });
 
+aura_env.interrupts = {
+    [1766] = 5,     -- Kick (Rogue)
+    [2139] = 6,     -- Counterspell (Mage)
+    [6552] = 4,     -- Pummel (Warrior)
+    [19647] = 6,    -- Spell Lock (Warlock)
+    [47528] = 3,    -- Mind Freeze (Death Knight)
+    [57994] = 3,    -- Wind Shear (Shaman)
+    [91802] = 2,    -- Shambling Rush (Death Knight)
+    [96231] = 4,    -- Rebuke (Paladin)
+    [106839] = 4,   -- Skull Bash (Feral)
+    [97547] = 5,    -- Solar Beam (Balance)
+    [115781] = 6,   -- Optical Blast (Warlock)
+    [116705] = 4,   -- Spear Hand Strike (Monk)
+    [132409] = 6,   -- Spell Lock (Warlock)
+    [147362] = 3,   -- Countershot (Hunter)
+    [171138] = 6,   -- Shadow Lock (Warlock)
+    [183752] = 3,   -- Consume Magic (Demon Hunter)
+    [187707] = 3,   -- Muzzle (Hunter)
+    [212619] = 6,   -- Call Felhunter (Warlock)
+    [231665] = 3,   -- Avengers Shield (Paladin)    
+};
+
 aura_env.auraRemovedSubEvents = {
     ["SPELL_AURA_REMOVED"] = true,
     ["SPELL_AURA_REMOVED_DOSE"] = true,
@@ -363,7 +385,7 @@ aura_env.getAura = function(destUnit, spellId, type)
     end
 end
 
--- TRIGGER 1 events: PLAYER_REGEN_DISABLED,COMBAT_LOG_EVENT_UNFILTERED:SPELL_AURA_REMOVED,COMBAT_LOG_EVENT_UNFILTERED:SPELL_AURA_REMOVED_DOSE,COMBAT_LOG_EVENT_UNFILTERED:SPELL_AURA_APPLIED,COMBAT_LOG_EVENT_UNFILTERED:SPELL_AURA_REFRESH,COMBAT_LOG_EVENT_UNFILTERED:SPELL_AURA_APPLIED_DOSE
+-- TRIGGER 1 events: PLAYER_REGEN_DISABLED,COMBAT_LOG_EVENT_UNFILTERED:SPELL_AURA_REMOVED,COMBAT_LOG_EVENT_UNFILTERED:SPELL_AURA_REMOVED_DOSE,COMBAT_LOG_EVENT_UNFILTERED:SPELL_AURA_APPLIED,COMBAT_LOG_EVENT_UNFILTERED:SPELL_AURA_REFRESH,COMBAT_LOG_EVENT_UNFILTERED:SPELL_AURA_APPLIED_DOSE,COMBAT_LOG_EVENT_UNFILTERED:SPELL_INTERRUPT
 function(allstates, event, ...)
     local subEvent = select(2, ...);
     local destGuid = select(8, ...);
@@ -416,6 +438,34 @@ function(allstates, event, ...)
                 index = index,
                 unit = destUnit,
                 dispelType = dispelType,
+            };
+        end
+    end
+
+    -- interrupt applied
+    if (subEvent == "SPELL_INTERRUPT") then
+        local index = aura_env.spells[spellId];
+        local destUnit = (aura_env.arenaUnits and aura_env.arenaUnits[destGuid]);
+
+        if (index and destUnit) then
+            local duration = aura_env.interrupts[spellId];
+            local name, _, icon = GetSpellInfo(spellId);
+            
+            if (not icon) then
+                print("|cff9F6000Warning: Icon not found in WeakAuras aura ", aura_env.id, ". name: ", name, ", id: ", spellId, "|r"); 
+            end
+            
+            allstates[destGuid..spellId] = {
+                show = true,
+                changed = true,
+                name = name,
+                icon = icon,
+                autoHide = true,
+                progressType = "timed",
+                duration = duration,
+                expirationTime = GetTime() + duration,
+                index = index,
+                unit = destUnit,
             };
         end
     end
