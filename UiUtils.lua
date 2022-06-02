@@ -38,3 +38,7 @@ end
 for i = 1, 12 do _G["ActionButton"..i]:SetScale(1.1) end;
 for i = 1, 12 do _G["MultiBarBottomLeftButton"..i]:SetScale(1.1) end;
 for i = 1, 12 do _G["MultiBarBottomRightButton"..i]:SetScale(1.1) end;
+
+local point, relativeTo, relativePoint, xOfs, yOfs = ActionButton1:GetPoint();
+ActionButton1:ClearAllPoints();
+ActionButton1:SetPoint(point, relativeTo, relativePoint, xOfs, 86);
