@@ -286,7 +286,7 @@ function(allstates, event, ...)
             end
         end
     end
-
+    
     -- aura removed
     if (aura_env.auraRemovedSubEvents[subEvent]) then
         if (allstates[destGuid..spellId] and allstates[destGuid..spellId].show) then
@@ -296,25 +296,37 @@ function(allstates, event, ...)
             };
         end
     end
-
+    
     -- aura applied
-    if (aura_env.auraAppliedSubEvents[subEvent]) then
+    if (aura_env.auraAppliedSubEvents[subEvent] or subEvent == "SPELL_INTERRUPT") then
         local index = aura_env.spells[spellId];
         local destUnit = (aura_env.groupUnits and aura_env.groupUnits[destGuid]);
-
+        
         if (index and destUnit) then
-            local name = select(13, ...);
-            local type = select(15, ...);
-            local isRoot = aura_env.roots[spellId] or false;
-            local icon, count, dispelType, duration, expirationTime = aura_env.getAura(destUnit, spellId, type);
-
+            local name, icon, duration, expirationTime, dispelType;
+            local count = 0;
+            local isRoot = false;
+            
+            if (aura_env.auraAppliedSubEvents[subEvent]) then
+                name = select(13, ...);
+                local type = select(15, ...);
+                isRoot = aura_env.roots[spellId] or false;
+                icon, count, dispelType, duration, expirationTime = aura_env.getAura(destUnit, spellId, type);
+            elseif (subEvent == "SPELL_INTERRUPT") then
+                local rank;
+                duration = aura_env.interrupts[spellId];
+                name, rank, icon = GetSpellInfo(spellId);
+                expirationTime = GetTime() + duration;
+            end
+            
             if (not icon) then
                 print("|cff9F6000Warning: Icon not found in WeakAuras aura ", aura_env.id, ". name: ", name, ", id: ", spellId, "|r"); 
             end
-
+            
             allstates[destGuid..spellId] = {
                 show = true,
                 changed = true,
+                autoHide = true,
                 name = name,
                 icon = icon,
                 stacks = count,
@@ -325,34 +337,6 @@ function(allstates, event, ...)
                 unit = destUnit,
                 dispelType = dispelType,
                 isRoot = isRoot,
-            };
-        end
-    end
-
-    -- interrupt applied
-    if (subEvent == "SPELL_INTERRUPT") then
-        local index = aura_env.spells[spellId];
-        local destUnit = (aura_env.groupUnits and aura_env.groupUnits[destGuid]);
-
-        if (index and destUnit) then
-            local duration = aura_env.interrupts[spellId];
-            local name, _, icon = GetSpellInfo(spellId);
-
-            if (not icon) then
-                print("|cff9F6000Warning: Icon not found in WeakAuras aura ", aura_env.id, ". name: ", name, ", id: ", spellId, "|r"); 
-            end
-            
-            allstates[destGuid..spellId] = {
-                show = true,
-                changed = true,
-                name = name,
-                icon = icon,
-                autoHide = true,
-                progressType = "timed",
-                duration = duration,
-                expirationTime = GetTime() + duration,
-                index = index,
-                unit = destUnit,
             };
         end
     end

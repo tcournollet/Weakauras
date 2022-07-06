@@ -390,14 +390,14 @@ function(allstates, event, ...)
     local subEvent = select(2, ...);
     local destGuid = select(8, ...);
     local spellId = select(12, ...);
-
+    
     -- arena units
     if (event == "PLAYER_REGEN_DISABLED") then
         aura_env.arenaUnits = {};
         for i = 1, 3 do
-            local unit = "arena"..i;
-            if UnitExists(unit)then
-                aura_env.arenaUnits[UnitGUID(unit)] = unit;
+            local arenaUnit = "arena"..i;
+            if UnitExists(arenaUnit) then
+                aura_env.arenaUnits[UnitGUID(arenaUnit)] = arenaUnit;
             end
         end
     end
@@ -413,22 +413,35 @@ function(allstates, event, ...)
     end
     
     -- aura applied
-    if (aura_env.auraAppliedSubEvents[subEvent]) then
+    if (aura_env.auraAppliedSubEvents[subEvent] or subEvent == "SPELL_INTERRUPT") then
         local index = aura_env.spells[spellId];
         local destUnit = (aura_env.arenaUnits and aura_env.arenaUnits[destGuid]);
-
-        if (index and destUnit) then
-            local name = select(13, ...);
-            local type = select(15, ...);
-            local icon, count, dispelType, duration, expirationTime = aura_env.getAura(destUnit, spellId, type);
-
+        local destNameplate = (destUnit and C_NamePlate.GetNamePlateForUnit(destUnit));
+        local destNamePlateUnitToken = (destNameplate and destNameplate.namePlateUnitToken);
+        
+        if (index and destNamePlateUnitToken) then
+            local name, icon, duration, expirationTime, dispelType;
+            local count = 0;
+            
+            if (aura_env.auraAppliedSubEvents[subEvent]) then
+                name = select(13, ...);
+                local type = select(15, ...);
+                icon, count, dispelType, duration, expirationTime = aura_env.getAura(destUnit, spellId, type);
+            elseif (subEvent == "SPELL_INTERRUPT") then
+                local rank;
+                duration = aura_env.interrupts[spellId];
+                name, rank, icon = GetSpellInfo(spellId);
+                expirationTime = GetTime() + duration;
+            end
+            
             if (not icon) then
                 print("|cff9F6000Warning: Icon not found in WeakAuras aura ", aura_env.id, ". name: ", name, ", id: ", spellId, "|r"); 
             end
-
+            
             allstates[destGuid..spellId] = {
                 show = true,
                 changed = true,
+                autoHide = true,
                 name = name,
                 icon = icon,
                 stacks = count,
@@ -436,36 +449,7 @@ function(allstates, event, ...)
                 duration = duration,
                 expirationTime = expirationTime,
                 index = index,
-                unit = destUnit,
-                dispelType = dispelType,
-            };
-        end
-    end
-
-    -- interrupt applied
-    if (subEvent == "SPELL_INTERRUPT") then
-        local index = aura_env.spells[spellId];
-        local destUnit = (aura_env.arenaUnits and aura_env.arenaUnits[destGuid]);
-
-        if (index and destUnit) then
-            local duration = aura_env.interrupts[spellId];
-            local name, _, icon = GetSpellInfo(spellId);
-            
-            if (not icon) then
-                print("|cff9F6000Warning: Icon not found in WeakAuras aura ", aura_env.id, ". name: ", name, ", id: ", spellId, "|r"); 
-            end
-            
-            allstates[destGuid..spellId] = {
-                show = true,
-                changed = true,
-                name = name,
-                icon = icon,
-                autoHide = true,
-                progressType = "timed",
-                duration = duration,
-                expirationTime = GetTime() + duration,
-                index = index,
-                unit = destUnit,
+                unit = destNamePlateUnitToken,
             };
         end
     end
